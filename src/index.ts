@@ -3,10 +3,12 @@ import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import accountRoutes from './account/routes';
 import swapRoutes from "./swap/routes";
+import logger from 'koa-logger';
 
 const app = new Koa();
 const router = new Router();
-
+// 使用 logger 中间件记录请求和响应
+app.use(logger());
 // 使用 bodyParser 中间件解析请求体
 app.use(bodyParser());
 
