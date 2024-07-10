@@ -20,7 +20,7 @@ router.use('/swap', swapRoutes.routes(), swapRoutes.allowedMethods());
 app.use(router.routes()).use(router.allowedMethods());
 
 // 启动服务器
-const PORT = 5008;
+const PORT = 8000;
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
 });
