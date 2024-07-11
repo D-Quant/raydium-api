@@ -34,7 +34,6 @@ router.get('/balance', async (ctx) => {
 
 // 获取账户的token balance
 router.get('/token_balance', async (ctx) => {
-    // console.log(`${}`)
     const raydium: Raydium = await initSdk()
     const owner = ctx.query.owner;
     const mint = ctx.query.mint;
@@ -43,18 +42,14 @@ router.get('/token_balance', async (ctx) => {
         return
     }
     try {
-        const target = !owner ? raydium.ownerPubKey : new PublicKey(owner);
+        const target: PublicKey = !owner ? raydium.ownerPubKey : new PublicKey(owner);
         const filter = {mint: new PublicKey(mint)};
-
         let acc = await raydium.connection.getParsedTokenAccountsByOwner(target, filter);
-        console.log(acc.value)
-
         if (acc.value.length === 0) {
-            console.log('acc value is empty')
             ctx.body = {
                 "isNative": false,
-                "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-                "owner": "BEmUSjqs7mpgaSXw6QdrePfTsD8aQHbdtnqUxa63La6E",
+                "mint": mint,
+                "owner": target.toString(),
                 "state": "initialized",
                 "tokenAmount": null
             }

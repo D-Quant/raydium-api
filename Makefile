@@ -1,17 +1,17 @@
-.PHONY: build prod cleanup
+.PHONY: build remove cleanup
 
 
 ## 编译
 build:
 	docker build -t raydium-api .
 
-## 启动
-start:
-	echo 'docker run -e WALLET_SECRET_KEY=your_wallet_secret_key_here -e ENDPOINT_URL=https://your_rpc_url_here -p 3000:8000 raydium-api'
-
 cleanup:
 	chmod +x cleanup.sh
 	sh cleanup.sh
+
+remove:
+	chmod +x remove.sh
+	sh remove.sh
 
 ## Show help
 help:
