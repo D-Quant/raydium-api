@@ -2,7 +2,6 @@ import Koa from 'koa';
 import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import accountRoutes from './account/routes';
-import swapRoutes from "./swap/routes";
 import logger from 'koa-logger';
 
 const app = new Koa();
@@ -15,8 +14,8 @@ app.use(bodyParser());
 // 加载 account 模块路由
 router.use('/account', accountRoutes.routes(), accountRoutes.allowedMethods());
 
-// 加载 swap 模块路由
-router.use('/swap', swapRoutes.routes(), swapRoutes.allowedMethods());
+// 加载 amm 模块路由
+// router.use('/amm', swapRoutes.routes(), swapRoutes.allowedMethods());
 
 // 使用主路由
 app.use(router.routes()).use(router.allowedMethods());

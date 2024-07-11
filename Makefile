@@ -7,7 +7,7 @@ build:
 
 ## 启动
 start:
-	echo 'docker run -e WALLET_SECRET_KEY=your_wallet_secret_key_here -e ENDPOINT_URL=https://your_rpc_url_here -p 3000:3000 raydium-api'
+	echo 'docker run -e WALLET_SECRET_KEY=your_wallet_secret_key_here -e ENDPOINT_URL=https://your_rpc_url_here -p 3000:8000 raydium-api'
 
 cleanup:
 	chmod +x cleanup.sh

@@ -3,17 +3,20 @@
 import Router from 'koa-router';
 import {sendErrorResponse} from '../utils/response';
 import {initSdk} from '../config'
-import {Raydium} from "@raydium-io/raydium-sdk-v2";
+import {parseTokenAccountResp, Raydium} from "@raydium-io/raydium-sdk-v2";
 import {PublicKey} from "@solana/web3.js"
+import {TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID} from '@solana/spl-token'
+import {convertData} from "../utils/convert";
 
 const router = new Router();
 
-// 定义请求体接口
-interface UpdateAccountRequestBody {
-    name: string;
-    email: string;
-}
 
+// 获取当前钱包的地址
+router.get('/mywallet', async (ctx) => {
+    const raydium: Raydium = await initSdk()
+    const pubkey = raydium.ownerPubKey.toString()
+    ctx.body = {owner: pubkey}
+})
 // 获取账户的sol余额
 router.get('/balance', async (ctx) => {
     const raydium: Raydium = await initSdk()
@@ -23,9 +26,9 @@ router.get('/balance', async (ctx) => {
     ctx.body = {
         owner: raydium.ownerPubKey.toString(),
         amount: amount,
-        ui_amount: amount / 10 ** 9,
+        uiAmount: amount / 10 ** 9,
         decimals: 9,
-        is_wallet: target.equals(raydium.ownerPubKey)
+        isWallet: target.equals(raydium.ownerPubKey)
     }
 })
 
@@ -35,36 +38,84 @@ router.get('/token_balance', async (ctx) => {
     const raydium: Raydium = await initSdk()
     const owner = ctx.query.owner;
     const mint = ctx.query.mint;
-    // console.log(`${owner} ${mint}`)
-
-    if (!owner || !mint) {
+    if (!mint) {
         sendErrorResponse(ctx, 501, "miss owner or mint")
         return
     }
-    const target = !owner ? raydium.ownerPubKey : new PublicKey(owner);
-    const filter = {mint: new PublicKey(mint)};
-    ctx.body = await raydium.connection.getTokenAccountsByOwner(target, filter)
+    try {
+        const target = !owner ? raydium.ownerPubKey : new PublicKey(owner);
+        const filter = {mint: new PublicKey(mint)};
+
+        let acc = await raydium.connection.getParsedTokenAccountsByOwner(target, filter);
+        console.log(acc.value)
+
+        if (acc.value.length === 0) {
+            console.log('acc value is empty')
+            ctx.body = {
+                "isNative": false,
+                "mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+                "owner": "BEmUSjqs7mpgaSXw6QdrePfTsD8aQHbdtnqUxa63La6E",
+                "state": "initialized",
+                "tokenAmount": null
+            }
+            return;
+        }
+        let tokenAccountParsed = acc.value[0];
+        ctx.body = tokenAccountParsed.account.data.parsed.info;
+    } catch (e) {
+        sendErrorResponse(ctx, 500, e)
+    }
 })
 
-// GET /account/info
-router.get('/info', async (ctx) => {
-    const userId = ctx.query.userId;
-    if (typeof userId !== 'string') {
-        sendErrorResponse(ctx, 400, 'Invalid request body');
-        return;
+// 获取用户的全部资产数据
+router.get('/asset', async (ctx) => {
+    try {
+        const owner = ctx.query.owner;
+        const raydium: Raydium = await initSdk()
+        const target = owner ? new PublicKey(owner) : raydium.ownerPubKey
+        const solAccountResp = await raydium.connection.getAccountInfo(target)
+        const tokenAccountResp = await raydium.connection.getTokenAccountsByOwner(target, {programId: TOKEN_PROGRAM_ID})
+        const token2022Req = await raydium.connection.getTokenAccountsByOwner(target, {programId: TOKEN_2022_PROGRAM_ID})
+        const tokenAccountData = parseTokenAccountResp({
+            owner: target,
+            solAccountResp,
+            tokenAccountResp: {
+                context: tokenAccountResp.context,
+                value: [...tokenAccountResp.value, ...token2022Req.value],
+            },
+        })
+        ctx.body = convertData(tokenAccountData.tokenAccounts);
+    } catch (e) {
+        sendErrorResponse(ctx, 500, e);
     }
-    ctx.body = {message: `Account info for user ${userId}`};
-});
+})
+//
 
-// POST /account/update
-router.post('/update', async (ctx) => {
-    const body = ctx.request.body as UpdateAccountRequestBody;
-    const {name, email} = body;
-    if (!name || !email) {
-        sendErrorResponse(ctx, 400, 'Invalid request body');
-        return;
-    }
-    ctx.body = {message: 'Account updated', data: {name, email}};
-});
+// 定义请求体接口
+// interface UpdateAccountRequestBody {
+//     name: string;
+//     email: string;
+// }
+
+// // GET /account/info
+// router.get('/info', async (ctx) => {
+//     const userId = ctx.query.userId;
+//     if (typeof userId !== 'string') {
+//         sendErrorResponse(ctx, 400, 'Invalid request body');
+//         return;
+//     }
+//     ctx.body = {message: `Account info for user ${userId}`};
+// });
+//
+// // POST /account/update
+// router.post('/update', async (ctx) => {
+//     const body = ctx.request.body as UpdateAccountRequestBody;
+//     const {name, email} = body;
+//     if (!name || !email) {
+//         sendErrorResponse(ctx, 400, 'Invalid request body');
+//         return;
+//     }
+//     ctx.body = {message: 'Account updated', data: {name, email}};
+// });
 
 export default router;
