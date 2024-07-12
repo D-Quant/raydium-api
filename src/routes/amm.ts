@@ -1,11 +1,18 @@
+// noinspection SpellCheckingInspection
+
 import Router from "koa-router";
 import {sendErrorResponse} from "../utils/response";
-import {initSdk} from "../config";
+import {initSdk, owner, txVersion} from "../config";
+import {AmmRpcData, AmmV4Keys, ApiV3PoolInfoStandardItem} from "@raydium-io/raydium-sdk-v2";
+import {isValidAmm} from "../utils/util";
+import BN from "bn.js";
+import Decimal from "decimal.js";
+import {DefaultTransactionExecutorV2} from "../utils/default-transaction-executorV2";
 
 const router = new Router();
 
 
-// 获取AMM池的基本信息
+//GET 获取AMM池的基本信息
 router.get('/pool/:poolId', async (ctx) => {
 
     const {poolId} = ctx.params;
@@ -79,8 +86,113 @@ router.get('/pool/:poolId', async (ctx) => {
     }
 });
 
-// POST /account/update
-router.post('/update', async (ctx) => {
+// 定义请求体接口
+interface AmmSwapRequest {
+    poolId: string;//eg: 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2
+    inputMint: string;//eg: So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+    amountIn: number;//eg:500
+    slippage: number;//eg: 0.01  range: 1 ~ 0.0001, means 100% ~ 0.01%
+    units?: number;//eg: 600000
+    microLamports?: number;//eg: 100000000
+}
+
+// POST AMM Swap
+router.post('/swap', async (ctx) => {
+    const raydium = await initSdk()
+    const {
+        poolId,
+        inputMint,
+        amountIn,
+        slippage = 0.01,
+        units = 600000,
+        microLamports = 30000
+    } = ctx.request.body as AmmSwapRequest;
+
+    if (!poolId || !inputMint || !amountIn) {
+        sendErrorResponse(ctx, 400, 'Invalid request body,miss Args');
+        return;
+    }
+
+    let poolInfo: ApiV3PoolInfoStandardItem | undefined;
+    let poolKeys: AmmV4Keys | undefined;
+    let rpcData: AmmRpcData;
+
+
+    // note: api doesn't support get devnet pool info, so in devnet else we go rpc method
+    // if you wish to get pool info from rpc, also can modify logic to go rpc method directly
+    if (raydium.cluster === 'mainnet') {
+        // note: api doesn't support get devnet pool info, so in devnet else we go rpc method
+        // if you wish to get pool info from rpc, also can modify logic to go rpc method directly
+        const data = await raydium.api.fetchPoolById({ids: poolId})
+        poolInfo = data[0] as ApiV3PoolInfoStandardItem
+        if (!isValidAmm(poolInfo.programId)) throw new Error('target pool is not AMM pool')
+        poolKeys = await raydium.liquidity.getAmmPoolKeys(poolId)
+        rpcData = await raydium.liquidity.getRpcPoolInfo(poolId)
+    } else {
+        // note: getPoolInfoFromRpc method only return required pool data for computing not all detail pool info
+        const data = await raydium.liquidity.getPoolInfoFromRpc({poolId})
+        poolInfo = data.poolInfo
+        poolKeys = data.poolKeys
+        rpcData = data.poolRpcData
+    }
+    const [baseReserve, quoteReserve, status] = [rpcData.baseReserve, rpcData.quoteReserve, rpcData.status.toNumber()]
+
+    if (poolInfo.mintA.address !== inputMint && poolInfo.mintB.address !== inputMint)
+        throw new Error('input mint does not match pool')
+
+    const baseIn = inputMint === poolInfo.mintA.address
+    const [mintIn, mintOut] = baseIn ? [poolInfo.mintA, poolInfo.mintB] : [poolInfo.mintB, poolInfo.mintA]
+
+    const out = raydium.liquidity.computeAmountOut({
+        poolInfo: {
+            ...poolInfo,
+            baseReserve,
+            quoteReserve,
+            status,
+            version: 4,
+        },
+        amountIn: new BN(amountIn),
+        mintIn: mintIn.address,
+        mintOut: mintOut.address,
+        slippage: slippage, // range: 1 ~ 0.0001, means 100% ~ 0.01%
+    })
+
+    console.log(
+        `computed swap ${new Decimal(amountIn)
+            .div(10 ** mintIn.decimals)
+            .toDecimalPlaces(mintIn.decimals)
+            .toString()} ${mintIn.symbol || mintIn.address} to ${new Decimal(out.amountOut.toString())
+            .div(10 ** mintOut.decimals)
+            .toDecimalPlaces(mintOut.decimals)
+            .toString()} ${mintOut.symbol || mintOut.address}, minimum amount out ${new Decimal(out.minAmountOut.toString())
+            .div(10 ** mintOut.decimals)
+            .toDecimalPlaces(mintOut.decimals)} ${mintOut.symbol || mintOut.address}`
+    )
+    const blockHash = await raydium.connection.getLatestBlockhash();
+    const {transaction} = await raydium.liquidity.swap({
+        poolInfo,
+        poolKeys,
+        amountIn: new BN(amountIn),
+        amountOut: out.minAmountOut, // out.amountOut means amount 'without' slippage
+        fixedSide: 'in',
+        inputMint: mintIn.address,
+        txVersion,
+
+        // optional: set up priority fee here
+        computeBudgetConfig: {
+            units: units,
+            // microLamports: 100000000, 8 ,0.5
+            // microLamports: 13646642, 0.8 ,
+            microLamports: microLamports,//0.003 ,9
+        },
+    })
+
+    transaction.sign([owner]);
+    // console.log(`tx ${t}`)
+    // console.log(` start: ${new Date().toISOString()}`)
+    const tool = new DefaultTransactionExecutorV2(raydium.connection);
+    // console.log(`end: ${new Date().toISOString()}`)
+    ctx.body = await tool.executeAndConfirm(transaction, blockHash);
 
 
 });

@@ -6,7 +6,7 @@ import {initSdk} from '../config'
 import {parseTokenAccountResp, Raydium} from "@raydium-io/raydium-sdk-v2";
 import {PublicKey} from "@solana/web3.js"
 import {TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID} from '@solana/spl-token'
-import {convertData} from "../utils/convert";
+import {convertData} from "../utils/util";
 
 const router = new Router();
 
@@ -91,17 +91,6 @@ router.get('/asset', async (ctx) => {
 //     name: string;
 //     email: string;
 // }
-
-// // GET /account/info
-// router.get('/info', async (ctx) => {
-//     const userId = ctx.query.userId;
-//     if (typeof userId !== 'string') {
-//         sendErrorResponse(ctx, 400, 'Invalid request body');
-//         return;
-//     }
-//     ctx.body = {message: `Account info for user ${userId}`};
-// });
-//
 // // POST /account/update
 // router.post('/update', async (ctx) => {
 //     const body = ctx.request.body as UpdateAccountRequestBody;
