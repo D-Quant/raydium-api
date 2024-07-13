@@ -88,11 +88,13 @@ router.get('/pool/:poolId', async (ctx) => {
 // 定义请求体接口
 interface AmmSwapRequest {
     poolId: string;//eg: 58oQChx4yWmvKdwLLZzBi4ChoCc2fqCUWBkwMihLYQo2
-    inputMint: string;//eg: So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+    // inputMint: string;//eg: So11111111111111111111111111111111111111112 EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
+    a2b: boolean;//eg:true: SOL=>USDC , false:USDC=>SOL
     amountIn: number;//eg:500
     slippage: number;//eg: 0.01  range: 1 ~ 0.0001, means 100% ~ 0.01%
     units?: number;//eg: 600000
     microLamports?: number;//eg: 30000
+    debug?: boolean;//eg:false
 }
 
 // POST AMM Swap
@@ -100,14 +102,15 @@ router.post('/swap', async (ctx) => {
     const raydium = await initSdk()
     const {
         poolId,
-        inputMint,
+        a2b,
         amountIn,
         slippage = 0.01,
         units = 600000,
-        microLamports = 30000
+        microLamports = 30000,
+        debug = false
     } = ctx.request.body as AmmSwapRequest;
 
-    if (!poolId || !inputMint || !amountIn) {
+    if (!poolId || !amountIn) {
         sendErrorResponse(ctx, 400, 'Invalid request body,miss Args');
         return;
     }
@@ -134,11 +137,8 @@ router.post('/swap', async (ctx) => {
     }
     const [baseReserve, quoteReserve, status] = [rpcData.baseReserve, rpcData.quoteReserve, rpcData.status.toNumber()]
 
-    if (poolInfo.mintA.address !== inputMint && poolInfo.mintB.address !== inputMint)
-        throw new Error('input mint does not match pool')
 
-    const baseIn = inputMint === poolInfo.mintA.address
-    const [mintIn, mintOut] = baseIn ? [poolInfo.mintA, poolInfo.mintB] : [poolInfo.mintB, poolInfo.mintA]
+    const [mintIn, mintOut] = a2b ? [poolInfo.mintA, poolInfo.mintB] : [poolInfo.mintB, poolInfo.mintA]
 
     const out = raydium.liquidity.computeAmountOut({
         poolInfo: {
@@ -153,19 +153,21 @@ router.post('/swap', async (ctx) => {
         mintOut: mintOut.address,
         slippage: slippage, // range: 1 ~ 0.0001, means 100% ~ 0.01%
     })
+    const msg = `computed swap ${new Decimal(amountIn)
+        .div(10 ** mintIn.decimals)
+        .toDecimalPlaces(mintIn.decimals)
+        .toString()} ${mintIn.symbol || mintIn.address} to ${new Decimal(out.amountOut.toString())
+        .div(10 ** mintOut.decimals)
+        .toDecimalPlaces(mintOut.decimals)
+        .toString()} ${mintOut.symbol || mintOut.address}, minimum amount out ${new Decimal(out.minAmountOut.toString())
+        .div(10 ** mintOut.decimals)
+        .toDecimalPlaces(mintOut.decimals)} ${mintOut.symbol || mintOut.address}`;
+    console.log(msg);
+    if (debug) {
+        ctx.body = {'debug': debug, 'msg': msg}
+        return;
+    }
 
-    console.log(
-        `computed swap ${new Decimal(amountIn)
-            .div(10 ** mintIn.decimals)
-            .toDecimalPlaces(mintIn.decimals)
-            .toString()} ${mintIn.symbol || mintIn.address} to ${new Decimal(out.amountOut.toString())
-            .div(10 ** mintOut.decimals)
-            .toDecimalPlaces(mintOut.decimals)
-            .toString()} ${mintOut.symbol || mintOut.address}, minimum amount out ${new Decimal(out.minAmountOut.toString())
-            .div(10 ** mintOut.decimals)
-            .toDecimalPlaces(mintOut.decimals)} ${mintOut.symbol || mintOut.address}`
-    )
-    const blockHash = await raydium.connection.getLatestBlockhash();
     const {transaction} = await raydium.liquidity.swap({
         poolInfo,
         poolKeys,
@@ -180,7 +182,8 @@ router.post('/swap', async (ctx) => {
             units: units,
             // microLamports: 100000000, 8 ,0.5
             // microLamports: 13646642, 0.8 ,4
-            // microLamports: 1364664, 0.08 ,4
+            // microLamports: 1364664, 0.075 ,2
+            // microLamports: 300000, 0.025951 ,2
             // microLamports: 30000, 0.003 ,9
             microLamports: microLamports,//0.003 ,9
         },
@@ -191,6 +194,7 @@ router.post('/swap', async (ctx) => {
     // console.log(` start: ${new Date().toISOString()}`)
     // const tool = new DefaultTransactionExecutorV2(raydium.connection);
     // console.log(`end: ${new Date().toISOString()}`)
+    const blockHash = await raydium.connection.getLatestBlockhash();
     ctx.body = await executorV2.executeAndConfirm(transaction, blockHash);
 
 
