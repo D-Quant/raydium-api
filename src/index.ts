@@ -3,6 +3,8 @@ import Router from 'koa-router';
 import bodyParser from 'koa-bodyparser';
 import accountRouter from './routes/account';
 import ammRouter from './routes/amm'
+import clmmRouter from './routes/clmm'
+
 import logger from 'koa-logger';
 
 const app = new Koa();
@@ -15,6 +17,7 @@ app.use(bodyParser());
 // 加载模块路由
 router.use('/account', accountRouter.routes(), accountRouter.allowedMethods());
 router.use('/amm', ammRouter.routes(), ammRouter.allowedMethods());
+router.use('/clmm', clmmRouter.routes(), clmmRouter.allowedMethods());
 
 // 使用主路由
 app.use(router.routes()).use(router.allowedMethods());

@@ -2,12 +2,11 @@
 
 import Router from "koa-router";
 import {sendErrorResponse} from "../utils/response";
-import {initSdk, owner, txVersion} from "../config";
+import {executorV2, initSdk, owner, txVersion} from "../config";
 import {AmmRpcData, AmmV4Keys, ApiV3PoolInfoStandardItem} from "@raydium-io/raydium-sdk-v2";
 import {isValidAmm} from "../utils/util";
 import BN from "bn.js";
 import Decimal from "decimal.js";
-import {DefaultTransactionExecutorV2} from "../utils/default-transaction-executorV2";
 
 const router = new Router();
 
@@ -17,7 +16,7 @@ router.get('/pool/:poolId', async (ctx) => {
 
     const {poolId} = ctx.params;
     if (!poolId) {
-        sendErrorResponse(ctx, 400, 'User ID is required');
+        sendErrorResponse(ctx, 400, 'AMM poolId is required');
         return;
     }
     const raydium = await initSdk()
@@ -82,7 +81,7 @@ router.get('/pool/:poolId', async (ctx) => {
         "mintAAmount": res.mintAAmount.toString(),
         "mintBAmount": res.mintBAmount.toString(),
         "quoteReserve": res.quoteReserve.toString(),
-        "poolPrice": res.poolPrice
+        "poolPrice": res.poolPrice.toString()
     }
 });
 
@@ -93,7 +92,7 @@ interface AmmSwapRequest {
     amountIn: number;//eg:500
     slippage: number;//eg: 0.01  range: 1 ~ 0.0001, means 100% ~ 0.01%
     units?: number;//eg: 600000
-    microLamports?: number;//eg: 100000000
+    microLamports?: number;//eg: 30000
 }
 
 // POST AMM Swap
@@ -121,8 +120,6 @@ router.post('/swap', async (ctx) => {
     // note: api doesn't support get devnet pool info, so in devnet else we go rpc method
     // if you wish to get pool info from rpc, also can modify logic to go rpc method directly
     if (raydium.cluster === 'mainnet') {
-        // note: api doesn't support get devnet pool info, so in devnet else we go rpc method
-        // if you wish to get pool info from rpc, also can modify logic to go rpc method directly
         const data = await raydium.api.fetchPoolById({ids: poolId})
         poolInfo = data[0] as ApiV3PoolInfoStandardItem
         if (!isValidAmm(poolInfo.programId)) throw new Error('target pool is not AMM pool')
@@ -182,7 +179,9 @@ router.post('/swap', async (ctx) => {
         computeBudgetConfig: {
             units: units,
             // microLamports: 100000000, 8 ,0.5
-            // microLamports: 13646642, 0.8 ,
+            // microLamports: 13646642, 0.8 ,4
+            // microLamports: 1364664, 0.08 ,4
+            // microLamports: 30000, 0.003 ,9
             microLamports: microLamports,//0.003 ,9
         },
     })
@@ -190,9 +189,9 @@ router.post('/swap', async (ctx) => {
     transaction.sign([owner]);
     // console.log(`tx ${t}`)
     // console.log(` start: ${new Date().toISOString()}`)
-    const tool = new DefaultTransactionExecutorV2(raydium.connection);
+    // const tool = new DefaultTransactionExecutorV2(raydium.connection);
     // console.log(`end: ${new Date().toISOString()}`)
-    ctx.body = await tool.executeAndConfirm(transaction, blockHash);
+    ctx.body = await executorV2.executeAndConfirm(transaction, blockHash);
 
 
 });

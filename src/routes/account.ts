@@ -84,22 +84,5 @@ router.get('/asset', async (ctx) => {
         sendErrorResponse(ctx, 500, e);
     }
 })
-//
-
-// 定义请求体接口
-// interface UpdateAccountRequestBody {
-//     name: string;
-//     email: string;
-// }
-// // POST /account/update
-// router.post('/update', async (ctx) => {
-//     const body = ctx.request.body as UpdateAccountRequestBody;
-//     const {name, email} = body;
-//     if (!name || !email) {
-//         sendErrorResponse(ctx, 400, 'Invalid request body');
-//         return;
-//     }
-//     ctx.body = {message: 'Account updated', data: {name, email}};
-// });
 
 export default router;
