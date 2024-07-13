@@ -4,6 +4,7 @@ import bodyParser from 'koa-bodyparser';
 import accountRouter from './routes/account';
 import ammRouter from './routes/amm'
 import clmmRouter from './routes/clmm'
+import coreRouter from './routes/core'
 
 import logger from 'koa-logger';
 
@@ -18,6 +19,7 @@ app.use(bodyParser());
 router.use('/account', accountRouter.routes(), accountRouter.allowedMethods());
 router.use('/amm', ammRouter.routes(), ammRouter.allowedMethods());
 router.use('/clmm', clmmRouter.routes(), clmmRouter.allowedMethods());
+router.use('/core', coreRouter.routes(), coreRouter.allowedMethods());
 
 // 使用主路由
 app.use(router.routes()).use(router.allowedMethods());
