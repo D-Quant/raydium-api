@@ -7,8 +7,10 @@ import {
     ApiV3PoolInfoConcentratedItem,
     ClmmKeys,
     ComputeClmmPoolInfo,
+    MakeTxData,
     PoolUtils,
-    ReturnTypeFetchMultiplePoolTickArrays
+    ReturnTypeFetchMultiplePoolTickArrays,
+    TxV0BuildData
 } from "@raydium-io/raydium-sdk-v2";
 import {isValidClmm} from "../utils/util";
 import BN from 'bn.js'
@@ -128,7 +130,7 @@ router.post('/swap', async (ctx) => {
     })
     const [mintIn, mintOut] = a2b ? [poolInfo.mintA, poolInfo.mintB] : [poolInfo.mintB, poolInfo.mintA]
 
-    const {transaction} = await raydium.clmm.swap({
+    const {builder} = await raydium.clmm.swap({
         poolInfo,
         poolKeys,
         inputMint: mintIn.address,
@@ -141,6 +143,10 @@ router.post('/swap', async (ctx) => {
         remainingAccounts,
         txVersion,
     })
+    // 可能这里需要添加手续费计算相关配置，但sdk并未提供
+    builder.addCustomComputeBudget({units: units, microLamports: microLamports});
+    const {transaction} = await (builder.versionBuild({txVersion}) as Promise<MakeTxData<TxV0BuildData>>);
+
     const msg = `computed swap ${new Decimal(amountIn)
         .div(10 ** mintIn.decimals)
         .toDecimalPlaces(mintIn.decimals)
@@ -156,12 +162,14 @@ router.post('/swap', async (ctx) => {
         ctx.body = {'debug': debug, 'msg': msg}
         return;
     }
-
+    // publicKey: PublicKey;
+    //     secretKey: Uint8Array;
     transaction.sign([owner]);
+
+    const blockHash = await raydium.connection.getLatestBlockhash();
     // console.log(` start: ${new Date().toISOString()}`)
     // const tool = new DefaultTransactionExecutorV2(raydium.connection);
     // console.log(`end: ${new Date().toISOString()}`)
-    const blockHash = await raydium.connection.getLatestBlockhash();
     ctx.body = await executorV2.executeAndConfirm(transaction, blockHash);
 })
 

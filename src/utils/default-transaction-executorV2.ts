@@ -42,7 +42,7 @@ export class DefaultTransactionExecutorV2 implements TransactionExecutor {
                     break;
                 }
 
-                console.log(`${new Date().toISOString()} Tx not confirmed after ${250 * txSendAttempts++}ms, resending`);
+                // console.log(`${new Date().toISOString()} Tx not confirmed after ${250 * txSendAttempts++}ms, resending`);
 
                 await this.execute(transaction);
             }
