@@ -180,7 +180,7 @@ router.post('/swap', async (ctx) => {
         // optional: set up priority fee here
         computeBudgetConfig: {
             units: units,
-            // microLamports: 100000000, 8 ,0.5
+            // microLamports: 0, 8 ,0.5
             // microLamports: 13646642, 0.8 ,4
             // microLamports: 1364664, 0.075 ,2
             // microLamports: 300000, 0.025951 ,2

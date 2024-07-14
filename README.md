@@ -31,7 +31,10 @@ docker run -itd --name raydium-api-3 -p 8003:8000 -e WALLET_SECRET_KEY="钱包03
 ```bash
 docker logs -f --tail 100 raydium-api
 ```
-
+#### 停止并移除
+```bash
+docker rm -f raydium-api
+```
 #### 更新进行
 ```bash
 docker pull initsysctrl/raydium-api:latest
