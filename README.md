@@ -46,3 +46,10 @@ make build
 ```
 其余操作与方式1相同，当镜像为`raydium-api`而不是`initsysctrl/raydium-api`
 
+
+### 3.源码运行
+```shell
+ npx ts-node src/index.ts "<你的钱包地址>" "<你的节点url>"
+
+```
+
