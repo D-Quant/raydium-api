@@ -5,6 +5,7 @@ import accountRouter from './routes/account';
 import ammRouter from './routes/amm'
 import clmmRouter from './routes/clmm'
 import coreRouter from './routes/core'
+import rootRouter from './routes/root'
 
 import logger from 'koa-logger';
 
@@ -16,6 +17,7 @@ app.use(logger());
 app.use(bodyParser());
 
 // 加载模块路由
+router.use('/', rootRouter.routes(), rootRouter.allowedMethods());
 router.use('/account', accountRouter.routes(), accountRouter.allowedMethods());
 router.use('/amm', ammRouter.routes(), ammRouter.allowedMethods());
 router.use('/clmm', clmmRouter.routes(), clmmRouter.allowedMethods());
