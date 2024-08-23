@@ -5,7 +5,6 @@ import accountRouter from './routes/account';
 import ammRouter from './routes/amm'
 import clmmRouter from './routes/clmm'
 import coreRouter from './routes/core'
-import rootRouter from './routes/root'
 
 import logger from 'koa-logger';
 
@@ -16,8 +15,19 @@ app.use(logger());
 // 使用 bodyParser 中间件解析请求体
 app.use(bodyParser());
 
+// 定义根路径的 GET 或 POST 路由
+router.get('/', async (ctx) => {
+    ctx.body = {};
+    ctx.body = {
+        'name': 'raydium-api',
+        'version': 'v1.0.3',
+        'author': 'Matrix.Ye',
+        'desc': 'api of pump',
+        'message': 'Welcome to the root endpoint!'
+    }
+});
+
 // 加载模块路由
-router.use('/', rootRouter.routes(), rootRouter.allowedMethods());
 router.use('/account', accountRouter.routes(), accountRouter.allowedMethods());
 router.use('/amm', ammRouter.routes(), ammRouter.allowedMethods());
 router.use('/clmm', clmmRouter.routes(), clmmRouter.allowedMethods());
